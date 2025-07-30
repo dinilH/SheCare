@@ -9,6 +9,7 @@
     "start": "next start"
   },
   "dependencies": {
+    "@asgardeo/nextjs": "^0.1.15",
     "@emotion/is-prop-valid": "latest",
     "@emotion/react": "latest",
     "@emotion/styled": "latest",
