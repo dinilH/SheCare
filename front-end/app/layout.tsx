@@ -36,30 +36,25 @@ export default function RootLayout({
       <head>
         <link rel="icon" href="/favicon.png" type="image/png" />
         <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
-        {/* <link rel="manifest" href="/manifest.json" /> */}
       </head>
       <body className={inter.className}>
-        <ThemeProvider>
-          <ServiceStatusProvider>
-            <AuthProvider>
-              <WellnessProvider>
-                <NewsProvider>
-                  <PeriodProvider>
-                    <LoadingScreen />
-                    <div className="min-h-screen flex flex-col">
-                      <Navbar />
-                      <main className="flex-1 pt-16">{children}</main>
-                      <Footer />
-                      <ChatbotIcon />
+        <ThemeProvider attribute="class" defaultTheme="light" enableSystem disableTransitionOnChange>
+          <AuthProvider>
+            <WellnessProvider>
+              <NewsProvider>
+                <LoadingScreen />
+                <div className="min-h-screen flex flex-col">
+                  <Navbar />
+                  <main className="flex-1 pt-16">{children}</main>
+                  <Footer />
+                  <ChatbotIcon />
                   </div>
                   <Toaster />
-                </PeriodProvider>
-              </NewsProvider>
-            </WellnessProvider>
-          </AuthProvider>
-        </ServiceStatusProvider>
-      </ThemeProvider>
-    </body>
-  </html>
+                </NewsProvider>
+              </WellnessProvider>
+            </AuthProvider>
+          </ThemeProvider>
+      </body>
+    </html>
   )
 }
