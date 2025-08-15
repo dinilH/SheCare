@@ -1,0 +1,5 @@
+# Config.toml - Fixed version for Ballerina
+# The configuration variables must match exactly with the configurable declarations in main.bal
+
+geminiApiKey = "AIzaSyBgbXY9H4pudJ4LN8L2SfX_Uuq6YOTBlls"
+geminiApiUrl = "https://generativelanguage.googleapis.com/v1/models/gemini-1.5-flash:generateContent"

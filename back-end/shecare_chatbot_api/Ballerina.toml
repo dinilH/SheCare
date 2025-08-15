@@ -1,0 +1,16 @@
+# Ballerina.toml
+[package]
+org = "shecare"
+name = "chatbot_api"
+version = "0.1.0"
+distribution = "2201.8.0"
+
+[build-options]
+observabilityIncluded = true
+
+[dependencies]
+
+# Config.toml (for local development)
+[shecare_chatbot_api]
+geminiApiKey = "AIzaSyBgbXY9H4pudJ4LN8L2SfX_Uuq6YOTBlls"
+geminiApiUrl = "https://generativelanguage.googleapis.com/v1/models/gemini-1.5-flash:generateContent"
