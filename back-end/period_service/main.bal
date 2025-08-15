@@ -1,51 +1,63 @@
+// SheCare Period Service -Ballerina Implementation
+
 import ballerina/http;
 import ballerina/time;
 import ballerina/log;
 
-// Simple in-memory storage for demo (in production, use a database)
+// ========== DATA STORAGE ==========
+// In-memory storage for demonstration (production would use a database)
 map<PeriodRequest> userPeriodData = {};
-map<PeriodRequest[]> userPeriodHistory = {}; // Store multiple period entries
+map<PeriodRequest[]> userPeriodHistory = {};
 
+// ========== TYPE DEFINITIONS ==========
+
+// Period tracking request payload
 type PeriodRequest record {
-    string lastPeriodStartDate;
-    int periodLength;
-    int averageCycleLength;
+    string lastPeriodStartDate;    // ISO date format (YYYY-MM-DD)
+    int periodLength;              // Duration of menstruation (typically 3-7 days)
+    int averageCycleLength;        // Average cycle length (typically 21-35 days)
 };
 
+// Month information with leap year calculations
 type MonthInfo record {
-    string month;
-    int year;
-    int daysInMonth;
-    boolean isLeapYear;
+    string month;                  // Month name (January, February, etc.)
+    int year;                      // Year (YYYY)
+    int daysInMonth;              // Days in this month (28-31)
+    boolean isLeapYear;           // Whether this year is a leap year
 };
 
+// Period prediction for a specific cycle
 type PeriodPrediction record {
-    int periodNumber;
-    string periodStartDate;
-    string periodEndDate;
-    string ovulationDate;
-    string fertileWindowStart;
-    string fertileWindowEnd;
-    int cycleDay;
-    MonthInfo monthInfo;
+    int periodNumber;             // Cycle number (1, 2, 3...)
+    string periodStartDate;       // Predicted period start date
+    string periodEndDate;         // Predicted period end date
+    string ovulationDate;         // Predicted ovulation date (typically cycle day 14)
+    string fertileWindowStart;   // Start of fertile window (5 days before ovulation)
+    string fertileWindowEnd;     // End of fertile window (1 day after ovulation)
+    int cycleDay;                // Current cycle day
+    MonthInfo monthInfo;         // Month details
 };
 
+// Individual calendar day information
 type CalendarDay record {
-    string date;
-    string dayType; // "period", "ovulation", "fertile", "regular"
-    int cycleDay;
-    string phase; // "menstrual", "follicular", "ovulation", "luteal"
-    boolean isPredicted;
+    string date;                  // Date in YYYY-MM-DD format
+    string dayType;              // "period", "ovulation", "fertile", "regular"
+    int cycleDay;                // Day within the menstrual cycle (1-28+)
+    string phase;                // "menstrual", "follicular", "ovulation", "luteal"
+    boolean isPredicted;         // Whether this is a prediction or actual data
 };
 
+// API response format for period predictions
 type PeriodResponse record {
-    boolean success;
-    string message;
-    PeriodPrediction[] predictions?;
-    CalendarDay[] calendarData?;
-    string nextPeriodDate?;
-    string nextOvulationDate?;
+    boolean success;             // Whether the operation was successful
+    string message;              // Response message or error description
+    PeriodPrediction[] predictions?;  // Array of future cycle predictions
+    CalendarDay[] calendarData?;     // Calendar data with cycle information
+    string nextPeriodDate?;      // Next predicted period start date
+    string nextOvulationDate?;   // Next predicted ovulation date
 };
+
+// ========== HTTP SERVICE CONFIGURATION ==========
 
 @http:ServiceConfig {
     cors: {
@@ -56,20 +68,27 @@ type PeriodResponse record {
     }
 }
 service /api/period on new http:Listener(8081) {
-    // Health check endpoint
+    
+    // ========== HEALTH CHECK ENDPOINT ==========
+    // Health check endpoint to verify service availability
+    // @return JSON response with service status and timestamp
     resource function get health() returns json {
+        log:printInfo("Period service health check - Pure Ballerina implementation");
         return {
             success: true,
-            message: "Period prediction API is running",
+            message: "Period prediction API running with pure Ballerina calculations",
             timestamp: time:utcToString(time:utcNow())
         };
     }
 
-    // Predict future periods
+    // ========== PERIOD PREDICTION ENDPOINT ==========
+    // Generate period predictions using pure Ballerina time mathematics
+    // @param request - Period tracking information (last period date, lengths)
+    // @return Comprehensive period predictions with calendar data
     resource function post predict(PeriodRequest request) returns PeriodResponse|error {
-        log:printInfo("Predicting periods for cycle length: " + request.averageCycleLength.toString());
+        log:printInfo("Generating period predictions with Ballerina for cycle length: " + request.averageCycleLength.toString());
         
-        // Store user's period data for calendar generation (using a simple key for demo)
+        // Store user period data for historical tracking
         userPeriodData["default_user"] = request;
         
         // Add to period history for better calendar tracking
@@ -101,58 +120,58 @@ service /api/period on new http:Listener(8081) {
         }
         time:Utc lastPeriodStart = lastPeriodStartResult;
             
-            // Generate predictions for next 6 cycles
-            PeriodPrediction[] predictions = [];
-            CalendarDay[] calendarData = [];
+        // Generate predictions for next 6 cycles
+        PeriodPrediction[] predictions = [];
+        CalendarDay[] calendarData = [];
+        
+        int cycleLength = request.averageCycleLength;
+        int periodLength = request.periodLength;
+        
+        // Generate predictions for next 6 months
+        foreach int i in 0...5 {
+            time:Utc cycleStartTime = time:utcAddSeconds(lastPeriodStart, i * cycleLength * 24 * 3600);
+            time:Utc cycleEndTime = time:utcAddSeconds(cycleStartTime, (periodLength - 1) * 24 * 3600);
+            time:Utc ovulationTime = time:utcAddSeconds(cycleStartTime, (cycleLength - 14) * 24 * 3600);
+            time:Utc fertileStart = time:utcAddSeconds(ovulationTime, -5 * 24 * 3600);
+            time:Utc fertileEnd = time:utcAddSeconds(ovulationTime, 1 * 24 * 3600);
             
-            int cycleLength = request.averageCycleLength;
-            int periodLength = request.periodLength;
+            // Convert to civil time for month info
+            time:Civil cycleCivil = time:utcToCivil(cycleStartTime);
             
-            // Generate predictions for next 6 months
-            foreach int i in 0...5 {
-                time:Utc cycleStartTime = time:utcAddSeconds(lastPeriodStart, i * cycleLength * 24 * 3600);
-                time:Utc cycleEndTime = time:utcAddSeconds(cycleStartTime, (periodLength - 1) * 24 * 3600);
-                time:Utc ovulationTime = time:utcAddSeconds(cycleStartTime, (cycleLength - 14) * 24 * 3600);
-                time:Utc fertileStart = time:utcAddSeconds(ovulationTime, -5 * 24 * 3600);
-                time:Utc fertileEnd = time:utcAddSeconds(ovulationTime, 1 * 24 * 3600);
-                
-                // Convert to civil time for month info
-                time:Civil cycleCivil = time:utcToCivil(cycleStartTime);
-                
-                PeriodPrediction prediction = {
-                    periodNumber: i + 1,
-                    periodStartDate: time:utcToString(cycleStartTime).substring(0, 10),
-                    periodEndDate: time:utcToString(cycleEndTime).substring(0, 10),
-                    ovulationDate: time:utcToString(ovulationTime).substring(0, 10),
-                    fertileWindowStart: time:utcToString(fertileStart).substring(0, 10),
-                    fertileWindowEnd: time:utcToString(fertileEnd).substring(0, 10),
-                    cycleDay: 1,
-                    monthInfo: {
-                        month: getMonthName(cycleCivil.month),
-                        year: cycleCivil.year,
-                        daysInMonth: getDaysInMonth(cycleCivil.month, cycleCivil.year),
-                        isLeapYear: isLeapYear(cycleCivil.year)
-                    }
-                };
-                
-                predictions.push(prediction);
-            }
-            
-            // Generate calendar data for the next 3 months
-            calendarData = generateCalendarData(lastPeriodStart, cycleLength, periodLength);
-            
-            return {
-                success: true,
-                message: "Period predictions generated successfully",
-                predictions: predictions,
-                calendarData: calendarData,
-                nextPeriodDate: predictions[1].periodStartDate,
-                nextOvulationDate: predictions[1].ovulationDate
+            PeriodPrediction prediction = {
+                periodNumber: i + 1,
+                periodStartDate: time:utcToString(cycleStartTime).substring(0, 10),
+                periodEndDate: time:utcToString(cycleEndTime).substring(0, 10),
+                ovulationDate: time:utcToString(ovulationTime).substring(0, 10),
+                fertileWindowStart: time:utcToString(fertileStart).substring(0, 10),
+                fertileWindowEnd: time:utcToString(fertileEnd).substring(0, 10),
+                cycleDay: 1,
+                monthInfo: {
+                    month: getMonthName(cycleCivil.month),
+                    year: cycleCivil.year,
+                    daysInMonth: getDaysInMonth(cycleCivil.month, cycleCivil.year),
+                    isLeapYear: isLeapYear(cycleCivil.year)
+                }
             };
+            
+            predictions.push(prediction);
+        }
+        
+        // Generate calendar data for the next 3 months
+        calendarData = generateCalendarData(lastPeriodStart, cycleLength, periodLength);
+        
+        return {
+            success: true,
+            message: "Period predictions generated successfully",
+            predictions: predictions,
+            calendarData: calendarData,
+            nextPeriodDate: predictions[1].periodStartDate,
+            nextOvulationDate: predictions[1].ovulationDate
+        };
     }
 
     // Get calendar data for a specific month
-    resource function get calendar(string year, string month) returns PeriodResponse|error {
+    resource function get calendar/[string year]/[string month]() returns PeriodResponse|error {
         log:printInfo("Getting calendar data for year: " + year + ", month: " + month);
         
         // Parse year and month
@@ -404,4 +423,4 @@ function generateMonthCalendarData(time:Utc lastPeriodStart, int year, int month
     }
     
     return calendarData;
-} 
+}

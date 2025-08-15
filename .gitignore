@@ -1,0 +1,39 @@
+# Dependencies
+node_modules/
+target/
+cache/
+
+# Environment variables
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+back-end/**/.env
+front-end/.env.local
+
+# IDE
+.vscode/
+.idea/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Next.js
+.next/
+out/
+
+# Build outputs
+dist/
+build/
+
+# Temporary files
+*.tmp
+*.temp

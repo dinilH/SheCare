@@ -31,8 +31,8 @@ interface NewsContextType {
 }
 
 // API configuration
-// Dynamic API URL based on environment
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || '/api/news'
+// Connect directly to Ballerina News Service instead of Next.js API route
+const API_BASE_URL = process.env.NEXT_PUBLIC_NEWS_API_URL || 'http://localhost:8060/api/news'
 
 const NewsContext = createContext<NewsContextType | undefined>(undefined)
 
@@ -107,26 +107,15 @@ export function NewsProvider({ children }: { children: React.ReactNode }) {
         setArticles(articlesWithBookmarks)
         setFilteredArticles(articlesWithBookmarks)
       } else {
-        setError(data.message || 'Failed to fetch news')
-        // Fallback to localStorage if API fails
-        const stored = localStorage.getItem("cached-news")
-        if (stored) {
-          const cachedArticles = JSON.parse(stored)
-          setArticles(cachedArticles)
-          setFilteredArticles(cachedArticles)
-        }
+        setError(data.message || 'Ballerina News Service failed to fetch news')
+        setArticles([])
+        setFilteredArticles([])
       }
     } catch (err) {
-      console.error('Failed to fetch news:', err)
-      setError('Failed to connect to news service')
-      
-      // Fallback to localStorage
-      const stored = localStorage.getItem("cached-news")
-      if (stored) {
-        const cachedArticles = JSON.parse(stored)
-        setArticles(cachedArticles)
-        setFilteredArticles(cachedArticles)
-      }
+      console.error('Failed to connect to Ballerina News Service:', err)
+      setError('Cannot connect to Ballerina News Service - Ballerina implementation required')
+      setArticles([])
+      setFilteredArticles([])
     } finally {
       setLoading(false)
     }
@@ -167,20 +156,8 @@ export function NewsProvider({ children }: { children: React.ReactNode }) {
       })))
       
     } catch (err) {
-      console.error('Failed to toggle bookmark:', err)
-      // Fallback to localStorage only
-      const isCurrentlyBookmarked = bookmarkedArticles.includes(articleId)
-      const newBookmarks = isCurrentlyBookmarked 
-        ? bookmarkedArticles.filter(id => id !== articleId)
-        : [...bookmarkedArticles, articleId]
-      
-      setBookmarkedArticles(newBookmarks)
-      localStorage.setItem("bookmarkedArticles", JSON.stringify(newBookmarks))
-      
-      setArticles(prev => prev.map(article => ({
-        ...article,
-        isBookmarked: article.id === articleId ? !isCurrentlyBookmarked : article.isBookmarked
-      })))
+      console.error('Failed to toggle bookmark - Ballerina News Service required:', err)
+      throw new Error('Cannot toggle bookmark - Ballerina News Service required')
     }
   }
 

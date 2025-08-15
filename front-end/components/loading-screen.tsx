@@ -33,8 +33,8 @@ export default function LoadingScreen() {
               className="mb-8"
             >
               <div className="relative w-32 h-32 mx-auto">
-                {/* Girl Avatar */}
-                <motion.div
+                
+                {/* <motion.div
                   animate={{
                     y: [0, -10, 0],
                     rotate: [0, 5, -5, 0],
@@ -47,7 +47,27 @@ export default function LoadingScreen() {
                   className="w-full h-full bg-white rounded-full flex items-center justify-center text-6xl shadow-2xl"
                 >
                   👩‍⚕️
+                </motion.div> */}
+
+                <motion.div
+                  animate={{
+                    y: [0, -10, 0],
+                    rotate: [0, 5, -5, 0],
+                  }}
+                  transition={{
+                    duration: 2,
+                    repeat: Number.POSITIVE_INFINITY,
+                    ease: "easeInOut",
+                  }}
+                  className="w-full h-full bg-white rounded-full flex items-center justify-center shadow-2xl overflow-hidden"
+                >
+                  <img
+                    src="/favicon.png"
+                    alt="Girl Avatar"
+                    className="w-full h-full object-cover rounded-full"
+                  />
                 </motion.div>
+
 
                 {/* Floating Hearts */}
                 {[...Array(3)].map((_, i) => (

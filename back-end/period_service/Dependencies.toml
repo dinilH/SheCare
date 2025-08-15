@@ -70,7 +70,7 @@ dependencies = [
 [[package]]
 org = "ballerina"
 name = "http"
-version = "2.14.2"
+version = "2.14.3"
 dependencies = [
 	{org = "ballerina", name = "auth"},
 	{org = "ballerina", name = "cache"},
@@ -261,7 +261,7 @@ dependencies = [
 [[package]]
 org = "ballerina"
 name = "task"
-version = "2.10.0"
+version = "2.11.0"
 dependencies = [
 	{org = "ballerina", name = "jballerina.java"},
 	{org = "ballerina", name = "time"},
@@ -299,28 +299,15 @@ dependencies = [
 ]
 
 [[package]]
-org = "ballerinai"
-name = "observe"
-version = "0.0.0"
-dependencies = [
-	{org = "ballerina", name = "jballerina.java"},
-	{org = "ballerina", name = "observe"}
-]
-modules = [
-	{org = "ballerinai", packageName = "observe", moduleName = "observe"}
-]
-
-[[package]]
-org = "itec"
+org = "shecare"
 name = "period_service"
 version = "0.1.0"
 dependencies = [
 	{org = "ballerina", name = "http"},
 	{org = "ballerina", name = "log"},
-	{org = "ballerina", name = "time"},
-	{org = "ballerinai", name = "observe"}
+	{org = "ballerina", name = "time"}
 ]
 modules = [
-	{org = "itec", packageName = "period_service", moduleName = "period_service"}
+	{org = "shecare", packageName = "period_service", moduleName = "period_service"}
 ]
 

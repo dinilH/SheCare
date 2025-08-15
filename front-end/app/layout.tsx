@@ -7,6 +7,8 @@ import { Toaster } from "@/components/ui/toaster"
 import { AuthProvider } from "@/contexts/auth-context"
 import { WellnessProvider } from "@/contexts/wellness-context"
 import { NewsProvider } from "@/contexts/news-context"
+import { PeriodProvider } from "@/contexts/period-context"
+import { ServiceStatusProvider } from "@/contexts/service-status-context"
 import Navbar from "@/components/navbar"
 import Footer from "@/components/footer"
 import ChatbotIcon from "@/components/chatbot-icon"
@@ -34,7 +36,6 @@ export default function RootLayout({
       <head>
         <link rel="icon" href="/favicon.png" type="image/png" />
         <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
-        {/* <link rel="manifest" href="/manifest.json" /> */}
       </head>
       <body className={inter.className}>
         <ThemeProvider attribute="class" defaultTheme="light" enableSystem disableTransitionOnChange>
@@ -47,12 +48,12 @@ export default function RootLayout({
                   <main className="flex-1 pt-16">{children}</main>
                   <Footer />
                   <ChatbotIcon />
-                </div>
-                <Toaster />
-              </NewsProvider>
-            </WellnessProvider>
-          </AuthProvider>
-        </ThemeProvider>
+                  </div>
+                  <Toaster />
+                </NewsProvider>
+              </WellnessProvider>
+            </AuthProvider>
+          </ThemeProvider>
       </body>
     </html>
   )

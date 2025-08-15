@@ -10,6 +10,8 @@ import { Badge } from "@/components/ui/badge"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Textarea } from "@/components/ui/textarea"
+import { usePeriod } from "@/contexts/period-context"
+import { useServiceStatus } from "@/contexts/service-status-context"
 import {
   CalendarIcon,
   TrendingUp,
@@ -20,6 +22,9 @@ import {
   Eye,
   ChevronLeft,
   ChevronRight,
+  AlertCircle,
+  Wifi,
+  WifiOff,
 } from "lucide-react"
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from "recharts"
 
@@ -52,7 +57,19 @@ const flowColors = {
 }
 
 export default function MyPeriodPage() {
-  const [periods, setPeriods] = useState<PeriodEntry[]>([])
+  const { 
+    periods, 
+    predictions, 
+    calendarData, 
+    loading, 
+    error, 
+    addPeriod, 
+    updatePeriod, 
+    deletePeriod 
+  } = usePeriod()
+
+  const { services, checkService } = useServiceStatus()
+  
   const [isAddModalOpen, setIsAddModalOpen] = useState(false)
   const [isTrendsModalOpen, setIsTrendsModalOpen] = useState(false)
   const [isPredictionsModalOpen, setIsPredictionsModalOpen] = useState(false)
@@ -67,20 +84,6 @@ export default function MyPeriodPage() {
   const [selectedSymptoms, setSelectedSymptoms] = useState<string[]>([])
   const [notes, setNotes] = useState("")
 
-  // Load periods from localStorage
-  useEffect(() => {
-    const savedPeriods = localStorage.getItem("periods")
-    if (savedPeriods) {
-      setPeriods(JSON.parse(savedPeriods))
-    }
-  }, [])
-
-  // Save periods to localStorage
-  const savePeriods = (newPeriods: PeriodEntry[]) => {
-    setPeriods(newPeriods)
-    localStorage.setItem("periods", JSON.stringify(newPeriods))
-  }
-
   const handleSymptomToggle = (symptom: string) => {
     setSelectedSymptoms((prev) => (prev.includes(symptom) ? prev.filter((s) => s !== symptom) : [...prev, symptom]))
   }
@@ -94,26 +97,29 @@ export default function MyPeriodPage() {
     setEditingPeriod(null)
   }
 
-  const handleAddPeriod = () => {
+  const handleAddPeriod = async () => {
     if (!startDate || !endDate) return
 
-    const periodData: PeriodEntry = {
-      id: editingPeriod?.id || Date.now().toString(),
-      startDate,
-      endDate,
-      flow,
-      symptoms: selectedSymptoms,
-      notes,
-    }
+    try {
+      const periodData = {
+        startDate,
+        endDate,
+        flow,
+        symptoms: selectedSymptoms,
+        notes,
+      }
 
-    if (editingPeriod) {
-      savePeriods(periods.map((p) => (p.id === editingPeriod.id ? periodData : p)))
-    } else {
-      savePeriods([...periods, periodData])
-    }
+      if (editingPeriod) {
+        await updatePeriod(editingPeriod.id, periodData)
+      } else {
+        await addPeriod(periodData)
+      }
 
-    resetForm()
-    setIsAddModalOpen(false)
+      resetForm()
+      setIsAddModalOpen(false)
+    } catch (error) {
+      console.error('Failed to save period:', error)
+    }
   }
 
   const handleEditPeriod = (period: PeriodEntry) => {
@@ -126,8 +132,12 @@ export default function MyPeriodPage() {
     setIsAddModalOpen(true)
   }
 
-  const handleDeletePeriod = (id: string) => {
-    savePeriods(periods.filter((p) => p.id !== id))
+  const handleDeletePeriod = async (id: string) => {
+    try {
+      await deletePeriod(id)
+    } catch (error) {
+      console.error('Failed to delete period:', error)
+    }
   }
 
   // Generate calendar for current month
@@ -174,35 +184,16 @@ export default function MyPeriodPage() {
     })
   }
 
-  // Calculate predictions
-  const getPredictions = () => {
-    if (periods.length < 2) return []
-
-    const sortedPeriods = [...periods].sort((a, b) => new Date(a.startDate).getTime() - new Date(b.startDate).getTime())
-    const cycles = []
-
-    for (let i = 1; i < sortedPeriods.length; i++) {
-      const prevStart = new Date(sortedPeriods[i - 1].startDate)
-      const currentStart = new Date(sortedPeriods[i].startDate)
-      const cycleLength = Math.ceil((currentStart.getTime() - prevStart.getTime()) / (1000 * 60 * 60 * 24))
-      cycles.push(cycleLength)
-    }
-
-    const avgCycle = cycles.reduce((sum, cycle) => sum + cycle, 0) / cycles.length
-    const lastPeriod = sortedPeriods[sortedPeriods.length - 1]
-    const lastStart = new Date(lastPeriod.startDate)
-
-    const predictions = []
-    for (let i = 1; i <= 3; i++) {
-      const nextStart = new Date(lastStart.getTime() + avgCycle * i * 24 * 60 * 60 * 1000)
-      predictions.push({
-        cycle: i,
-        date: nextStart.toISOString().split("T")[0],
-        formattedDate: nextStart.toLocaleDateString("en-US", { month: "long", day: "numeric" }),
-      })
-    }
-
-    return predictions
+  // Calculate predictions using context data
+  const getFormattedPredictions = () => {
+    return predictions.slice(0, 3).map((pred, index) => ({
+      cycle: index + 1,
+      date: pred.periodStartDate,
+      formattedDate: new Date(pred.periodStartDate).toLocaleDateString("en-US", { month: "long", day: "numeric" }),
+      ovulationDate: pred.ovulationDate,
+      fertileWindowStart: pred.fertileWindowStart,
+      fertileWindowEnd: pred.fertileWindowEnd
+    }))
   }
 
   // Chart data
@@ -229,12 +220,31 @@ export default function MyPeriodPage() {
   }
 
   const calendarDays = generateCalendar()
-  const predictions = getPredictions()
+  const formattedPredictions = getFormattedPredictions()
   const chartData = getChartData()
   const recentPeriods = periods.slice(0, 3)
 
+  // Get period service status
+  const periodService = services.find(s => s.name === 'Period API')
+  const isPeriodServiceOnline = periodService?.status === 'online'
+  const isPeriodServiceChecking = periodService?.status === 'checking'
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-[#FFCAD4]/20 to-white pt-16">
+      {loading && (
+        <div className="fixed inset-0 bg-black/20 backdrop-blur-sm flex items-center justify-center z-50">
+          <div className="text-[#FF407D] text-lg">Processing...</div>
+        </div>
+      )}
+      
+      {error && (
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
+          <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded mb-4">
+            {error}
+          </div>
+        </div>
+      )}
+      
       {/* Compact Hero Section */}
       <motion.section
         initial={{ opacity: 0, y: -20 }}
@@ -263,6 +273,69 @@ export default function MyPeriodPage() {
       </motion.section>
 
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        {/* Service Status Alert */}
+        {!isPeriodServiceOnline && !isPeriodServiceChecking && (
+          <motion.div
+            initial={{ opacity: 0, y: -20 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="mb-6"
+          >
+            <div className="bg-red-50 border-l-4 border-red-400 p-4 rounded-lg shadow-lg">
+              <div className="flex items-center">
+                <div className="flex-shrink-0">
+                  <AlertCircle className="h-6 w-6 text-red-400" />
+                </div>
+                <div className="ml-3 flex-1">
+                  <h3 className="text-lg font-medium text-red-800">
+                    Period Tracking Service Unavailable
+                  </h3>
+                  <div className="mt-2 text-sm text-red-700">
+                    <p>
+                      The period tracking service is currently offline. You cannot add, edit, or generate predictions 
+                      for period entries until the service is restored. Please check back later or contact support if this issue persists.
+                    </p>
+                  </div>
+                  <div className="mt-3 flex items-center gap-4">
+                    <button
+                      onClick={() => checkService('Period API')}
+                      className="inline-flex items-center px-3 py-1 border border-transparent text-sm leading-5 font-medium rounded-md text-red-700 bg-red-100 hover:bg-red-200 focus:outline-none focus:border-red-300 focus:shadow-outline-red transition ease-in-out duration-150"
+                    >
+                      <WifiOff className="h-4 w-4 mr-1" />
+                      Retry Connection
+                    </button>
+                    <div className="flex items-center text-sm text-red-600">
+                      <WifiOff className="h-4 w-4 mr-1" />
+                      Service Status: Offline
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </motion.div>
+        )}
+
+        {/* Service Checking Status */}
+        {isPeriodServiceChecking && (
+          <motion.div
+            initial={{ opacity: 0, y: -20 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="mb-6"
+          >
+            <div className="bg-yellow-50 border-l-4 border-yellow-400 p-4 rounded-lg shadow-lg">
+              <div className="flex items-center">
+                <div className="flex-shrink-0">
+                  <Wifi className="h-6 w-6 text-yellow-400 animate-pulse" />
+                </div>
+                <div className="ml-3">
+                  <p className="text-sm text-yellow-700">
+                    Checking period tracking service connection...
+                  </p>
+                </div>
+              </div>
+            </div>
+          </motion.div>
+        )}
+
         <div className="grid lg:grid-cols-3 gap-6">
           {/* Calendar */}
           <div className="lg:col-span-2">
@@ -293,13 +366,27 @@ export default function MyPeriodPage() {
                   </div>
                   <Dialog open={isAddModalOpen} onOpenChange={setIsAddModalOpen}>
                     <DialogTrigger asChild>
-                      <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
+                      <motion.div whileHover={isPeriodServiceOnline ? { scale: 1.05 } : {}} whileTap={isPeriodServiceOnline ? { scale: 0.95 } : {}}>
                         <Button
-                          className="bg-gradient-to-r from-[#FF407D] to-[#FFCAD4] hover:from-[#FFCAD4] hover:to-[#FF407D] text-white"
+                          disabled={!isPeriodServiceOnline}
+                          className={`transition-all duration-300 ${
+                            isPeriodServiceOnline
+                              ? "bg-gradient-to-r from-[#FF407D] to-[#FFCAD4] hover:from-[#FFCAD4] hover:to-[#FF407D] text-white"
+                              : "bg-gray-300 text-gray-500 cursor-not-allowed"
+                          }`}
                           onClick={resetForm}
                         >
-                          <Plus className="w-4 h-4 mr-2" />
-                          Add Period
+                          {!isPeriodServiceOnline ? (
+                            <>
+                              <WifiOff className="w-4 h-4 mr-2" />
+                              Period Service Offline
+                            </>
+                          ) : (
+                            <>
+                              <Plus className="w-4 h-4 mr-2" />
+                              Add Period
+                            </>
+                          )}
                         </Button>
                       </motion.div>
                     </DialogTrigger>
@@ -308,6 +395,22 @@ export default function MyPeriodPage() {
                         <DialogTitle className="text-[#1B3C73] text-center">
                           {editingPeriod ? "Edit Period Entry" : "Add Period Entry"}
                         </DialogTitle>
+                        
+                        {/* Service offline warning inside dialog */}
+                        {!isPeriodServiceOnline && (
+                          <motion.div
+                            initial={{ opacity: 0, y: -10 }}
+                            animate={{ opacity: 1, y: 0 }}
+                            className="mt-4 bg-red-50 border border-red-200 rounded-lg p-3"
+                          >
+                            <div className="flex items-center">
+                              <AlertCircle className="h-5 w-5 text-red-500 mr-2" />
+                              <p className="text-sm text-red-700">
+                                ⚠️ Period service is offline. You cannot save changes until the service is restored.
+                              </p>
+                            </div>
+                          </motion.div>
+                        )}
                       </DialogHeader>
                       <div className="space-y-4">
                         <div className="grid grid-cols-2 gap-4">
@@ -379,13 +482,20 @@ export default function MyPeriodPage() {
                           />
                         </div>
 
-                        <motion.div whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}>
+                        <motion.div whileHover={isPeriodServiceOnline ? { scale: 1.02 } : {}} whileTap={isPeriodServiceOnline ? { scale: 0.98 } : {}}>
                           <Button
                             onClick={handleAddPeriod}
-                            className="w-full bg-gradient-to-r from-[#FF407D] to-[#FFCAD4] hover:from-[#FFCAD4] hover:to-[#FF407D] text-white"
-                            disabled={!startDate || !endDate}
+                            disabled={!startDate || !endDate || !isPeriodServiceOnline}
+                            className={`w-full transition-all duration-300 ${
+                              isPeriodServiceOnline
+                                ? "bg-gradient-to-r from-[#FF407D] to-[#FFCAD4] hover:from-[#FFCAD4] hover:to-[#FF407D] text-white disabled:opacity-50"
+                                : "bg-gray-300 text-gray-500 cursor-not-allowed"
+                            }`}
                           >
-                            {editingPeriod ? "Update Period Entry" : "Add Period Entry"}
+                            {!isPeriodServiceOnline
+                              ? "Service Offline - Cannot Save"
+                              : editingPeriod ? "Update Period Entry" : "Add Period Entry"
+                            }
                           </Button>
                         </motion.div>
                       </div>
@@ -465,7 +575,10 @@ export default function MyPeriodPage() {
                       <CalendarIcon className="w-8 h-8 mx-auto mb-2" />
                       <h3 className="text-lg font-bold mb-1">Next Period</h3>
                       <p className="text-sm">
-                        {predictions.length > 0 ? predictions[0].formattedDate : "Track more cycles"}
+                        {predictions.length > 0 
+                          ? new Date(predictions[0].periodStartDate).toLocaleDateString("en-US", { month: "long", day: "numeric" })
+                          : "Track more cycles"
+                        }
                       </p>
                     </CardContent>
                   </Card>
@@ -475,8 +588,8 @@ export default function MyPeriodPage() {
                     <DialogTitle className="text-[#1B3C73] text-center">Period Predictions</DialogTitle>
                   </DialogHeader>
                   <div className="space-y-4">
-                    {predictions.length > 0 ? (
-                      predictions.map((prediction, index) => (
+                    {formattedPredictions.length > 0 ? (
+                      formattedPredictions.map((prediction, index) => (
                         <motion.div
                           key={prediction.cycle}
                           initial={{ opacity: 0, y: 20 }}
@@ -643,7 +756,12 @@ export default function MyPeriodPage() {
                                       variant="ghost"
                                       size="sm"
                                       onClick={() => handleEditPeriod(period)}
-                                      className="h-6 w-6 p-0 text-[#40679E] hover:text-[#FF407D]"
+                                      disabled={!isPeriodServiceOnline}
+                                      className={`h-6 w-6 p-0 ${
+                                        isPeriodServiceOnline 
+                                          ? "text-[#40679E] hover:text-[#FF407D]" 
+                                          : "text-gray-400 cursor-not-allowed"
+                                      }`}
                                     >
                                       <Edit className="w-3 h-3" />
                                     </Button>
@@ -651,7 +769,12 @@ export default function MyPeriodPage() {
                                       variant="ghost"
                                       size="sm"
                                       onClick={() => handleDeletePeriod(period.id)}
-                                      className="h-6 w-6 p-0 text-[#40679E] hover:text-red-500"
+                                      disabled={!isPeriodServiceOnline}
+                                      className={`h-6 w-6 p-0 ${
+                                        isPeriodServiceOnline 
+                                          ? "text-[#40679E] hover:text-red-500" 
+                                          : "text-gray-400 cursor-not-allowed"
+                                      }`}
                                     >
                                       <Trash2 className="w-3 h-3" />
                                     </Button>
@@ -706,7 +829,12 @@ export default function MyPeriodPage() {
                                   variant="ghost"
                                   size="sm"
                                   onClick={() => handleEditPeriod(period)}
-                                  className="h-6 w-6 p-0 text-[#40679E] hover:text-[#FF407D]"
+                                  disabled={!isPeriodServiceOnline}
+                                  className={`h-6 w-6 p-0 ${
+                                    isPeriodServiceOnline 
+                                      ? "text-[#40679E] hover:text-[#FF407D]" 
+                                      : "text-gray-400 cursor-not-allowed"
+                                  }`}
                                 >
                                   <Edit className="w-3 h-3" />
                                 </Button>
@@ -714,7 +842,12 @@ export default function MyPeriodPage() {
                                   variant="ghost"
                                   size="sm"
                                   onClick={() => handleDeletePeriod(period.id)}
-                                  className="h-6 w-6 p-0 text-[#40679E] hover:text-red-500"
+                                  disabled={!isPeriodServiceOnline}
+                                  className={`h-6 w-6 p-0 ${
+                                    isPeriodServiceOnline 
+                                      ? "text-[#40679E] hover:text-red-500" 
+                                      : "text-gray-400 cursor-not-allowed"
+                                  }`}
                                 >
                                   <Trash2 className="w-3 h-3" />
                                 </Button>

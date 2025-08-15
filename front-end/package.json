@@ -1,7 +1,9 @@
 {
-  "name": "my-v0-project",
-  "version": "0.1.0",
+  "name": "shecare-frontend",
+  "version": "1.0.0",
   "private": true,
+  "description": "SheCare - Women's Health Management Platform Frontend",
+  "author": "SheCare Team",
   "scripts": {
     "build": "next build",
     "dev": "next dev",
@@ -9,6 +11,7 @@
     "start": "next start"
   },
   "dependencies": {
+    "@asgardeo/nextjs": "^0.1.15",
     "@emotion/is-prop-valid": "latest",
     "@emotion/react": "latest",
     "@emotion/styled": "latest",

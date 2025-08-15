@@ -12,6 +12,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Progress } from "@/components/ui/progress"
 import { useWellness } from "@/contexts/wellness-context"
+import { useServiceStatus } from "@/contexts/service-status-context"
 import {
   Heart,
   Activity,
@@ -25,6 +26,9 @@ import {
   ChevronRight,
   Droplets,
   Edit,
+  AlertCircle,
+  Wifi,
+  WifiOff,
 } from "lucide-react"
 import { motion, AnimatePresence } from "framer-motion"
 
@@ -75,6 +79,7 @@ const commonSymptoms = [
 
 export default function WellnessPage() {
   const { addWellnessEntry, getWellnessHistory, getWellnessForDate, updateWellnessEntry, isLoading } = useWellness()
+  const { services, checkService } = useServiceStatus()
   const [isDialogOpen, setIsDialogOpen] = useState(false)
   const [isScoreModalOpen, setIsScoreModalOpen] = useState(false)
   const [isTrendsModalOpen, setIsTrendsModalOpen] = useState(false)
@@ -102,6 +107,11 @@ export default function WellnessPage() {
   const today = new Date().toISOString().split("T")[0]
   const todayEntry = getWellnessForDate(today)
   const recentEntries = history.slice(0, 3)
+
+  // Get wellness service status
+  const wellnessService = services.find(s => s.name === 'Wellness API')
+  const isWellnessServiceOnline = wellnessService?.status === 'online'
+  const isWellnessServiceChecking = wellnessService?.status === 'checking'
 
   const tabs = ["mood", "energy", "sleep", "physical", "symptoms", "notes"]
 
@@ -348,6 +358,69 @@ export default function WellnessPage() {
       </motion.section>
 
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        {/* Service Status Alert */}
+        {!isWellnessServiceOnline && !isWellnessServiceChecking && (
+          <motion.div
+            initial={{ opacity: 0, y: -20 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="mb-6"
+          >
+            <div className="bg-red-50 border-l-4 border-red-400 p-4 rounded-lg shadow-lg">
+              <div className="flex items-center">
+                <div className="flex-shrink-0">
+                  <AlertCircle className="h-6 w-6 text-red-400" />
+                </div>
+                <div className="ml-3 flex-1">
+                  <h3 className="text-lg font-medium text-red-800">
+                    Wellness Service Unavailable
+                  </h3>
+                  <div className="mt-2 text-sm text-red-700">
+                    <p>
+                      The wellness tracking service is currently offline. You cannot add or edit wellness entries 
+                      until the service is restored. Please check back later or contact support if this issue persists.
+                    </p>
+                  </div>
+                  <div className="mt-3 flex items-center gap-4">
+                    <button
+                      onClick={() => checkService('Wellness API')}
+                      className="inline-flex items-center px-3 py-1 border border-transparent text-sm leading-5 font-medium rounded-md text-red-700 bg-red-100 hover:bg-red-200 focus:outline-none focus:border-red-300 focus:shadow-outline-red transition ease-in-out duration-150"
+                    >
+                      <WifiOff className="h-4 w-4 mr-1" />
+                      Retry Connection
+                    </button>
+                    <div className="flex items-center text-sm text-red-600">
+                      <WifiOff className="h-4 w-4 mr-1" />
+                      Service Status: Offline
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </motion.div>
+        )}
+
+        {/* Service Checking Status */}
+        {isWellnessServiceChecking && (
+          <motion.div
+            initial={{ opacity: 0, y: -20 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="mb-6"
+          >
+            <div className="bg-yellow-50 border-l-4 border-yellow-400 p-4 rounded-lg shadow-lg">
+              <div className="flex items-center">
+                <div className="flex-shrink-0">
+                  <Wifi className="h-6 w-6 text-yellow-400 animate-pulse" />
+                </div>
+                <div className="ml-3">
+                  <p className="text-sm text-yellow-700">
+                    Checking wellness service connection...
+                  </p>
+                </div>
+              </div>
+            </div>
+          </motion.div>
+        )}
+
         <div className="grid lg:grid-cols-3 gap-6">
           {/* Main Content */}
           <div className="lg:col-span-2 space-y-6">
@@ -356,16 +429,26 @@ export default function WellnessPage() {
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: 0.1 }}
-              whileHover={{ scale: 1.02 }}
-              whileTap={{ scale: 0.98 }}
+              whileHover={isWellnessServiceOnline ? { scale: 1.02 } : {}}
+              whileTap={isWellnessServiceOnline ? { scale: 0.98 } : {}}
             >
               <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
                 <DialogTrigger asChild>
                   <Button
-                    className="w-full bg-gradient-to-r from-[#FF407D] to-[#FFCAD4] hover:from-[#FFCAD4] hover:to-[#FF407D] text-white py-6 text-lg shadow-lg"
+                    disabled={!isWellnessServiceOnline}
+                    className={`w-full py-6 text-lg shadow-lg transition-all duration-300 ${
+                      isWellnessServiceOnline
+                        ? "bg-gradient-to-r from-[#FF407D] to-[#FFCAD4] hover:from-[#FFCAD4] hover:to-[#FF407D] text-white"
+                        : "bg-gray-300 text-gray-500 cursor-not-allowed"
+                    }`}
                     onClick={() => setIsEditing(!!todayEntry)}
                   >
-                    {todayEntry ? (
+                    {!isWellnessServiceOnline ? (
+                      <>
+                        <WifiOff className="h-5 w-5 mr-2" />
+                        Wellness Service Offline - Cannot Add/Edit Entries
+                      </>
+                    ) : todayEntry ? (
                       <>
                         <Edit className="h-5 w-5 mr-2" />
                         Edit Today's Wellness Entry
@@ -391,6 +474,22 @@ export default function WellnessPage() {
                         transition={{ duration: 0.3 }}
                       />
                     </div>
+                    
+                    {/* Service offline warning inside dialog */}
+                    {!isWellnessServiceOnline && (
+                      <motion.div
+                        initial={{ opacity: 0, y: -10 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        className="mt-4 bg-red-50 border border-red-200 rounded-lg p-3"
+                      >
+                        <div className="flex items-center">
+                          <AlertCircle className="h-5 w-5 text-red-500 mr-2" />
+                          <p className="text-sm text-red-700">
+                            ⚠️ Wellness service is offline. You cannot save changes until the service is restored.
+                          </p>
+                        </div>
+                      </motion.div>
+                    )}
                   </DialogHeader>
 
                   <Tabs value={currentTab} onValueChange={handleTabChange} className="w-full">
@@ -595,16 +694,22 @@ export default function WellnessPage() {
                     </AnimatePresence>
                   </Tabs>
 
-                  <motion.div whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}>
+                  <motion.div whileHover={isWellnessServiceOnline ? { scale: 1.02 } : {}} whileTap={isWellnessServiceOnline ? { scale: 0.98 } : {}}>
                     <Button
                       type="button"
                       onClick={handleSubmit}
-                      disabled={isLoading}
-                      className="w-full bg-gradient-to-r from-[#FF407D] to-[#FFCAD4] hover:from-[#FFCAD4] hover:to-[#FF407D] text-white py-4 text-lg mt-6 shadow-lg disabled:opacity-50"
+                      disabled={isLoading || !isWellnessServiceOnline}
+                      className={`w-full py-4 text-lg mt-6 shadow-lg transition-all duration-300 ${
+                        isWellnessServiceOnline
+                          ? "bg-gradient-to-r from-[#FF407D] to-[#FFCAD4] hover:from-[#FFCAD4] hover:to-[#FF407D] text-white disabled:opacity-50"
+                          : "bg-gray-300 text-gray-500 cursor-not-allowed"
+                      }`}
                     >
-                      {isLoading 
-                        ? "Saving..." 
-                        : isEditing ? "Update Wellness Entry" : "Save Wellness Entry"
+                      {!isWellnessServiceOnline
+                        ? "Service Offline - Cannot Save"
+                        : isLoading 
+                          ? "Saving..." 
+                          : isEditing ? "Update Wellness Entry" : "Save Wellness Entry"
                       }
                     </Button>
                   </motion.div>

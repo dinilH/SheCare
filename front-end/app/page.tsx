@@ -6,6 +6,7 @@ import Image from "next/image"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
 import { Heart, Calendar, TrendingUp, MessageCircle, Newspaper, Shield, Users, Brain } from "lucide-react"
+import { ServiceStatusIndicator } from "@/components/service-status-indicator"
 
 export default function HomePage() {
   return (
@@ -72,6 +73,9 @@ export default function HomePage() {
       {/* Mission Section - Tile Layout */}
       <section className="py-20 bg-white">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          {/* Service Status Indicator */}
+          <ServiceStatusIndicator />
+          
           <motion.div
             initial={{ opacity: 0, y: 50 }}
             whileInView={{ opacity: 1, y: 0 }}
